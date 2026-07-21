@@ -1,5 +1,9 @@
 # leat
 
+[![tests](https://github.com/samtheprogrammer/leat/actions/workflows/ci.yml/badge.svg)](https://github.com/samtheprogrammer/leat/actions/workflows/ci.yml)
+[![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
+
 **Lightweight, engine-neutral incremental ETL over Iceberg & Delta.**
 Kafka-style offsets. Runs in any DAG. No broker, no cluster.
 

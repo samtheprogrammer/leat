@@ -1,0 +1,28 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install (with Delta + dev extras)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[delta,dev]"
+      - name: Run tests
+        # The etcd/REST tests need live Docker services (etcd, iceberg-rest, MinIO)
+        # that CI doesn't run — they skip locally too. Everything else runs here.
+        run: pytest -q --ignore=tests/test_etcd_integration.py --ignore=tests/test_rest_catalog.py
