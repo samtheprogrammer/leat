@@ -78,19 +78,28 @@ Measured on a realistic medallion DAG (2 bronze → 2 silver → 1 gold join+agg
 |---|---|---|---|---|---|---|---|---|
 | 5M  | **0.89 s** | 3.60 s (4.0×) | **372 ms** | 929 ms (2.5×) | ~3.8 s | 36.1 s | **~9.4×** | ✅ byte-identical |
 | 20M | **3.01 s** | 5.95 s (2.0×) | **596 ms** | 990 ms (1.7×) | ~10.3 s | 47.7 s | **~4.6×** | ✅ byte-identical |
+| 50M | **5.43 s** | 13.46 s (2.5×) | **832 ms** | 1053 ms (1.3×) | ~22.7 s | 74.1 s | **~3.3×** | ✅ byte-identical |
 
-At equal CPU **leat wins wall-clock at every measured size** — the margin narrows as
-data grows (4.0×→2.0× backfill, 2.5×→1.7× per-cycle) toward the ~35M-row crossover.
-But the durable win is **cost**: leat produces the identical gold using **~4.6–9.4×
-fewer CPU-seconds**, plus scale-to-zero (a triggered task vs an always-on cluster / a
-~3 s JVM cold start every trigger) — structurally ~15–100× cheaper. Single-instance
-leat used only **~1.5–1.8 of 4** cores while Spark burned **~2.5–2.8**: Spark only
-wins big-job wall-clock by **burning more CPU, not by being more efficient**. The
-~35M crossover is an artifact of single-instance leat idling cores — running N
-instances (now unblocked by proven parallel commits) closes it for partitionable
-work. Spark's real, durable edge is **shuffles** (giant joins that don't fit memory,
-global sorts, cross-partition high-cardinality group-bys) and the single-node memory
-ceiling — see [positioning](docs/positioning.md).
+At equal CPU **leat wins wall-clock at every measured size — 5M, 20M AND 50M**. The
+backfill margin did **not** collapse at 50M — it *recovered* to ~2.5× (4.0×→2.0×→2.5×)
+because Spark's join+agg gold stage balloons (5.68 s) while leat's DuckDB gold stays
+cheap (0.92 s); the per-cycle gap is the one that keeps narrowing (2.5×→1.7×→1.3×).
+The durable win is **cost**: leat produces the identical gold using **~3.3–9.4× fewer
+CPU-seconds** (50M: ~22.7 s vs Spark's 74.1 s → ~3.3×), plus scale-to-zero (a
+triggered task vs an always-on cluster / a ~3 s JVM cold start every trigger) —
+structurally ~15–100× cheaper. Single-instance leat used only **~1.5–1.8 of 4** cores
+at 5M/20M (Spark ~2.5–2.8), climbing to ~2.37 at 50M while still winning both
+wall-clock and CPU-seconds: Spark wins big-job wall-clock only by **burning more CPU,
+not by being more efficient**. The old **"~35M-row crossover, Spark takes over past
+that" is disproven** for realistic join/agg medallion pipelines — it came from a
+trivial single-filter microbench (one leat instance vs all-core Spark, no expensive
+gold stage). In every equal-CPU benchmark we ran (5M/20M/50M) leat won; we haven't
+found the crossover on realistic medallion work. (Caveat: for a pure-filter,
+shuffle-heavy, or much-larger-than-memory batch a crossover may still exist.) Spark's
+real, durable edge is **shuffles** (giant joins that don't fit memory, global sorts,
+cross-partition high-cardinality group-bys), the single-node memory ceiling, and
+sub-second real-time to non-table sinks — a coordination problem, not a data-size one.
+See [positioning](docs/positioning.md).
 
 ## Design
 

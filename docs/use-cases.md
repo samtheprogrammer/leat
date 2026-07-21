@@ -48,12 +48,15 @@ Flink) for the hot path, and let leat do the cost-efficient transform behind it.
 **Stream-stream windowed joins.**
 That is Flink's stateful streaming-join territory. Use **Flink**.
 
-**Huge single batch / full reprocess.**
-Above the ~35M-rows crossover, or anything larger than one node's memory, use
-**Spark**. leat is for the bounded incremental delta, not the giant one-shot job.
-(That crossover is an artifact of *single-instance* leat idling cores — at equal CPU
-it uses only ~1.5–1.8 of 4 — not a fundamental ceiling; multi-instance leat closes
-it for partitionable work. The genuinely-Spark cases below don't.)
+**Shuffle-heavy or larger-than-memory reprocess.**
+For giant non-co-partitioned shuffles, or anything larger than one node's memory, use
+**Spark**. leat is for the bounded incremental delta, not the giant shuffle-bound job.
+(There is **no measured size crossover** on realistic medallion work: at equal CPU
+leat won the join+agg medallion DAG at 5M, 20M *and* 50M in both wall-clock and
+CPU-seconds — the old "~35M-rows, Spark takes over" figure was a single-filter
+microbench artifact, disproven at 50M. A pure-filter/shuffle/much-larger-than-memory
+crossover may still exist; the genuinely-Spark cases below are shuffles and memory,
+not data size.)
 
 **Big shuffles.**
 Giant joins where neither side fits in memory, global sorts, cross-partition

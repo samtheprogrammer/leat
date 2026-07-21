@@ -72,12 +72,15 @@ Here's why even Flink can't escape it."
 
 ## 3. The differentiator: neutrality, not speed
 
-An early trap I had to be corrected on: over-indexing on raw speed. Spark wins big-job
-wall-clock at scale — but only by *burning more CPU*, not by being more efficient (at
-equal CPU, past a ~35M-rows/batch crossover, Spark's parallelism finishes the wall
-clock sooner while still spending more CPU-seconds). Selling "we're faster than Spark"
-is a mirage — the wall-clock win is only true below that crossover, and someone will
-always out-benchmark you.
+An early trap I had to be corrected on: over-indexing on raw speed. Where Spark wins a
+big batch it does so by *burning more CPU*, not by being more efficient — but there is
+**no measured size crossover on realistic medallion work**: at equal CPU leat won the
+join+agg medallion DAG at 5M, 20M *and* 50M in both wall-clock and CPU-seconds. (The
+old "~35M-rows/batch crossover, Spark takes over" was a trivial single-filter
+microbench artifact — one leat instance vs all-core Spark, no expensive gold stage —
+disproven at 50M.) Selling "we're faster than Spark" is still a mirage on a
+pure-filter or shuffle-heavy workload, and someone will always out-benchmark you on
+raw wall-clock, so the durable pitch stays cost/CPU, not speed.
 
 The durable differentiator isn't speed, it's **neutrality**:
 
@@ -435,16 +438,23 @@ different job with a different sink. (Why the floor exists: a commit is write-pa
 write-metadata + swap-the-catalog-pointer — you can't do that per row, so you batch. The
 offset is a free rider in the metadata; it costs ~nothing and is *not* the cause.)
 
-**Large scale — Spark wins wall-clock only by burning more.** Single-instance leat has a
-crossover (~35M rows/batch) where Spark finishes sooner. But that's an artifact of
-*single-instance leat idling cores* — at the equal `--cpus=4` cap leat used only
-**~1.5–1.8 of 4** cores while Spark used **~2.5–2.8**. Spark wins big-job wall-clock
-through **parallelism, not efficiency**: it uses *more* total CPU (~4.6–9.4× the
-CPU-seconds here), just spread wider (and a real cluster adds machines → the bill goes
-*up*). Run **multiple leat instances** (the elastic engine) on the same cores to
-saturate the idle budget and you get efficiency *and* parallelism — for partitionable
-work the crossover largely disappears. This is now the unblocked next experiment, since
-parallel multi-writer commits on a REST catalog are proven.
+**Large scale — no measured crossover on realistic medallion work.** The earlier
+"~35M rows/batch crossover, Spark takes over" turned out to be an artifact of a
+*trivial single-filter microbench* (one leat instance vs all-core Spark, no expensive
+gold stage). When we ran the realistic join+agg medallion DAG at equal CPU
+(`--cpus=4`, matched thread caps), **leat won wall-clock and CPU-seconds at 5M, 20M
+AND 50M**. The backfill margin did *not* keep collapsing at 50M — it recovered to
+~2.5× (4.0×→2.0×→2.5×) because Spark's join+agg gold stage balloons (5.68 s) while
+leat's DuckDB gold stays cheap (0.92 s); only the per-cycle gap keeps narrowing
+(down to ~1.3×). At 5M/20M single-instance leat used only **~1.5–1.8 of 4** cores
+(Spark ~2.5–2.8), climbing to **~2.37** at 50M — still spending **~3.3–9.4× fewer
+CPU-seconds** than Spark for the byte-identical gold. So Spark wins a batch (where it
+does) through **parallelism, not efficiency**, and a real cluster adds machines → the
+bill goes *up*. Honest caveat: a pure-filter, shuffle-heavy, or much-larger-than-memory
+batch may still have a crossover; we simply haven't found one on realistic medallion
+join/agg work through 50M. A **multiple-leat-instance** sequel (the elastic engine
+saturating the idle budget) is the unblocked next experiment, since parallel
+multi-writer commits on a REST catalog are proven.
 
 **The one real exception — the shuffle (Spark's actual moat).** Operations where every
 worker must swap data with every other mid-job — a giant join where neither side fits in

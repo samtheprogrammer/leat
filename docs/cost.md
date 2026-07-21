@@ -80,12 +80,16 @@ cluster and leaving the 10% on Spark.
 
 - **Local mode is Spark's best case.** In production the gap usually widens in
   leat's favor for latency and cost, but be skeptical of any single number.
-- **Big-job wall-clock at scale goes to Spark — but only by burning more.** Above the
-  ~35M-rows crossover Spark finishes sooner, not by being more efficient but by
-  spreading *more* CPU across more cores (and, on a real cluster, more machines → the
-  bill goes up). At equal CPU leat still wins CPU-seconds ~4.6–9.4× at every measured
-  size; the crossover is an artifact of single-instance leat idling cores, which
-  multi-instance closes for partitionable work (see [positioning.md](positioning.md)).
+- **No measured size crossover on realistic medallion work — Spark's edge is shuffles,
+  not size.** The old "~35M-rows crossover, Spark finishes sooner" was a single-filter
+  microbench artifact; on the realistic join+agg medallion DAG at equal CPU leat won
+  wall-clock at 5M, 20M *and* 50M (50M: ~2.5× backfill, ~1.3× per-cycle) and CPU-seconds
+  ~3.3–9.4× at every size (50M: ~22.7 s vs Spark 74.1 s → ~3.3×). Where Spark does win a
+  batch it does so by spreading *more* CPU across more cores / more machines (the bill
+  goes up), and its genuine, durable edge is **shuffles** (giant joins that don't fit
+  memory, global sorts, cross-partition high-cardinality group-bys), not a data-size
+  crossover. (A pure-filter/shuffle/much-larger-than-memory crossover may still exist;
+  we haven't found one on realistic medallion work — see [positioning.md](positioning.md).)
 - **Memory ceiling.** If a batch is bigger than one node's RAM, you need Spark
   regardless of cost.
 - These numbers are from one developer machine on the local filesystem. On object
