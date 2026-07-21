@@ -135,26 +135,49 @@ sync: the offset is *in* the table version the catalog points at.
 | `seek()` | `seek()` / `reset()`, plus **time-travel replay** |
 | retention | table time-travel window |
 
-## Scale-out: bounded backfill (no coordinator)
+## Scale & deploy like a stateless service (not a stateful monolith)
 
-Steady-state incremental runs on one node. The initial load / catch-up is the one
-case that needs parallelism — so `leat` has a **backfill mode**: N workers each own a
-static shard, run to a fixed `until` high-water mark, checkpoint per shard, then hand
-off to a single incremental consumer. No always-on coordinator — the work is a fixed
-bounded chunk, so each shard is an independent, resumable job.
+This is where `leat` diverges hardest from Spark Structured Streaming. A Spark
+streaming job is a **stateful monolith**: its state lives in a checkpoint dir owned
+by one running application. Two consequences everyone who's operated it knows —
+**scaling is a job resize** (reconfigure executors, restart) and there's **no clean
+blue-green deploy** (a logic change breaks checkpoint compatibility, so upgrades are
+stop-the-world).
+
+`leat` gets the opposite, and it falls out of two design choices, not a feature bolt-on:
+the offset lives in the **sink's own commit** (so a running worker holds *no* durable
+state — it's disposable), and workers coordinate only through a **shared `ClaimStore`**
+(so they're cattle, not pets).
+
+**Scale = replica count.** Start more processes — `kubectl scale --replicas=8`, or just
+run the script more times. Anonymous workers claim partitions/offset-ranges from the
+shared store; a new worker joins by claiming free work, a dead worker's lease expires
+and a survivor reclaims its partition, resuming from the sink offset — **exactly-once,
+no restart, no rebalance event.** This is demonstrated end-to-end (scale up + kill a
+worker mid-flight + exactly-once) in [`examples/elastic_demo.py`](examples/elastic_demo.py):
 
 ```python
-from leat import Backfill
-bf = Backfill(source, sink, transform, num_shards=4)   # split the initial load 4 ways
-bf.run("all")                                          # run-to-completion, exactly-once
+from leat import run_worker, open_claim_store
+store = open_claim_store("etcd://coord:2379")     # or "local" for one box
+run_worker(source, sink, transform, name="silver", num_buckets=16, claim_store=store)
+# start this N times → they self-distribute; start/kill any → the pool rebalances
 ```
 
-For worker failover without an orchestrator, pass a pluggable **`ClaimStore`** —
-`local` (SQLite, multi-process on one box) or **etcd** (its lease/TTL is the failover
-primitive: a dead worker's lease expires, its shard auto-frees, another worker resumes
-from the per-shard bookmark). The etcd backend stores claims as **protobuf** for a
-compact, fast hot path. Or just run shards as Airflow/Dagster/K8s tasks and let the
-orchestrator handle retries.
+**Blue-green deploys** are a deployment concern, not a state migration — because compute
+is stateless. Two patterns the design supports directly: point *green* at a **separate
+sink**, [parity-check](bench/parity_check.py) it against blue, then flip which sink
+downstream reads; or roll green in while blue drains (the `ClaimStore` guarantees one
+owner per partition, so they never collide).
+
+**Bounded backfill** for the initial load is the same machinery, run to a fixed
+high-water mark: `Backfill(source, sink, transform, num_shards=8).run("all")` — split
+the catch-up N ways, then scale down to steady state. Failover comes free from the
+`ClaimStore` (`local` SQLite on one box; **etcd** across machines, its lease/TTL *being*
+the failover primitive) — or run the shards as Airflow/Dagster/K8s tasks and let the
+orchestrator retry.
+
+*(Scaling and failover are demonstrated and tested; the separate-sink blue-green cutover
+is a straightforward consequence of stateless compute — see the [design journal §11](docs/design-journal.md).)*
 
 ## CLI
 
