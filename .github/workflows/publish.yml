@@ -1,0 +1,29 @@
+name: publish
+
+# Publishes to PyPI when you cut a GitHub Release.
+# Uses PyPI Trusted Publishing (OIDC) — no API token to store.
+# One-time setup on PyPI: project 'leat' → Settings → Publishing →
+#   add a trusted publisher: repo=samtheprogrammer/leat,
+#   workflow=publish.yml, environment=pypi.
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write        # required for Trusted Publishing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build sdist + wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
