@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>leat — incremental ETL over Iceberg & Delta, for a fraction of a Spark cluster's cost</title>
-<meta name="description" content="leat is a lightweight, engine-neutral incremental ETL library over Apache Iceberg and Delta Lake. Same results as Spark for ~4.6–9.4× less CPU, and it scales by replica count." />
+<title>leat — incremental ETL over Iceberg & Delta, without the cluster</title>
+<meta name="description" content="The lakehouse gave us great storage. But running the everyday 90% of ETL still means spinning up Spark. leat rethinks that: Kafka-style incremental ETL over Iceberg & Delta, on one node, for a fraction of the cost — and it scales like a stateless service." />
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
   :root{
@@ -14,36 +14,48 @@
     --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.65}
   a{color:var(--accent);text-decoration:none} a:hover{text-decoration:underline}
   .wrap{max-width:960px;margin:0 auto;padding:0 20px}
-  header{padding:72px 0 48px;text-align:center;border-bottom:1px solid var(--border)}
-  h1{font-size:3rem;margin:0 0 8px;letter-spacing:-1px}
-  .tag{font-size:1.25rem;color:var(--muted);margin:0 0 24px}
-  .badges a{display:inline-block;margin:0 4px}
-  .cta{display:inline-block;margin-top:24px;padding:12px 22px;background:var(--leat);color:#04140a;
+  header{padding:80px 0 52px;text-align:center;border-bottom:1px solid var(--border)}
+  h1{font-size:3.2rem;margin:0 0 10px;letter-spacing:-1.5px}
+  .tag{font-size:1.3rem;color:var(--muted);margin:0 auto 26px;max-width:60ch}
+  .tag b{color:var(--ink)}
+  .badges img{margin:0 3px;vertical-align:middle}
+  .cta{display:inline-block;margin-top:26px;padding:12px 22px;background:var(--leat);color:#04140a;
        font-weight:700;border-radius:8px}
   .cta.ghost{background:transparent;color:var(--ink);border:1px solid var(--border);margin-left:8px}
-  section{padding:56px 0;border-bottom:1px solid var(--border)}
-  h2{font-size:1.9rem;margin:0 0 6px;letter-spacing:-.5px}
-  h2 .n{color:var(--leat);font-family:var(--mono);font-size:1rem;vertical-align:middle;margin-right:8px}
-  .lead{color:var(--muted);font-size:1.1rem;margin:0 0 28px;max-width:70ch}
+  section{padding:60px 0;border-bottom:1px solid var(--border)}
+  h2{font-size:2rem;margin:0 0 8px;letter-spacing:-.5px}
+  h2 .n{color:var(--leat);font-family:var(--mono);font-size:1rem;vertical-align:middle;margin-right:10px}
+  .lead{color:var(--muted);font-size:1.12rem;margin:0 0 10px;max-width:72ch}
+  .prose p{color:#c9d3de;font-size:1.08rem;max-width:72ch;margin:0 0 18px}
+  .prose p b{color:var(--ink)}
+  .pull{border-left:3px solid var(--leat);padding:2px 0 2px 18px;color:var(--ink);font-size:1.15rem;margin:26px 0}
   .card{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:22px;margin:18px 0}
   .chart-title{font-size:.85rem;color:var(--muted);text-align:center;margin:0 0 10px;font-family:var(--mono)}
-  .chart-box{position:relative;height:260px}
+  .chart-box{position:relative;height:250px}
   .grid2{display:grid;grid-template-columns:1fr 1fr;gap:18px}
-  @media(max-width:720px){.grid2{grid-template-columns:1fr} h1{font-size:2.2rem}}
-  .stat{display:flex;gap:20px;flex-wrap:wrap;margin:8px 0 0}
+  .problems{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:24px}
+  .prob{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:20px 22px}
+  .prob .bad{color:#ff9d8a;font-family:var(--mono);font-size:.82rem;letter-spacing:.3px;text-transform:uppercase}
+  .prob h3{margin:8px 0 8px;font-size:1.18rem;letter-spacing:-.3px}
+  .prob p{margin:0;color:var(--muted);font-size:.98rem}
+  .prob .fix{color:var(--leat);font-weight:600}
+  .prob .tagd{display:inline-block;margin-top:12px;font-family:var(--mono);font-size:.72rem;color:var(--muted);
+    border:1px solid var(--border);border-radius:20px;padding:3px 10px}
+  @media(max-width:720px){.grid2,.problems{grid-template-columns:1fr} h1{font-size:2.3rem} .tag{font-size:1.1rem}}
+  .stat{display:flex;gap:16px;flex-wrap:wrap;margin:10px 0 0}
   .stat div{background:var(--panel);border:1px solid var(--border);border-radius:10px;padding:14px 18px;flex:1;min-width:150px}
-  .stat b{display:block;font-size:1.8rem;color:var(--leat);font-family:var(--mono)}
-  .stat span{color:var(--muted);font-size:.9rem}
+  .stat b{display:block;font-size:1.7rem;color:var(--leat);font-family:var(--mono)}
+  .stat span{color:var(--muted);font-size:.88rem}
   pre{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:18px;overflow:auto;
-      font-family:var(--mono);font-size:.9rem}
+      font-family:var(--mono);font-size:.9rem;line-height:1.7}
   .k{color:#ff7b72}.s{color:#a5d6ff}.c{color:var(--muted)}.f{color:#d2a8ff}
-  .note{color:var(--muted);font-size:.9rem;border-left:3px solid var(--border);padding-left:14px;margin-top:18px}
-  footer{padding:40px 0;text-align:center;color:var(--muted);font-size:.9rem}
-  .legend{display:flex;gap:18px;justify-content:center;font-size:.85rem;color:var(--muted);margin-top:6px}
+  .note{color:var(--muted);font-size:.92rem;border-left:3px solid var(--border);padding-left:14px;margin-top:18px}
+  .legend{display:flex;gap:18px;justify-content:center;font-size:.85rem;color:var(--muted);margin-top:8px}
   .legend i{display:inline-block;width:11px;height:11px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  footer{padding:44px 0;text-align:center;color:var(--muted);font-size:.9rem}
 </style>
 </head>
 <body>
@@ -51,7 +63,9 @@
 <header>
   <div class="wrap">
     <h1>leat</h1>
-    <p class="tag">Incremental ETL over <b>Iceberg</b> &amp; <b>Delta</b> — for a fraction of a Spark cluster's cost.</p>
+    <p class="tag">The lakehouse gave us great <b>storage</b>. But running the everyday 90% of ETL still means
+      spinning up a <b>cluster</b>. leat is the missing piece: Kafka-style incremental ETL over Iceberg &amp;
+      Delta — on one node, for a fraction of the cost.</p>
     <div class="badges">
       <img alt="tests" src="https://github.com/samtheprogrammer/leat/actions/workflows/ci.yml/badge.svg" />
       <img alt="license" src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" />
@@ -64,37 +78,118 @@
   </div>
 </header>
 
+<!-- THE STORY -->
+<section id="story">
+  <div class="wrap prose">
+    <h2><span class="n">00</span>The story</h2>
+    <p>A lakehouse table — Iceberg or Delta — is already an <b>append log</b>. Every commit is a new snapshot.
+      Add a monotonic offset and "read what changed since last time" becomes "read rows past my last offset."
+      That's a <b>Kafka consumer</b> — except the topic is a table you already have.</p>
+    <p>So here's the thing that started leat: if the table is already a log, why does every incremental
+      bronze&nbsp;→&nbsp;silver&nbsp;→&nbsp;gold job still spin up a distributed engine to process a delta that
+      fits on one core? You end up <b>renting a cluster to filter two million rows</b> — and paying for it to sit
+      warm between runs.</p>
+    <p class="pull">leat isn't a Spark killer. It's a <b>Spark-is-overkill killer</b> — for the ~90% of ETL that's
+      small, frequent, incremental batches.</p>
+    <p>But "run it on one node" was just the start. Once we pulled that thread, a whole pile of ecosystem
+      papercuts came with it — fragile exactly-once, offsets you babysit, streaming jobs you can't scale or
+      deploy, format lock-in, append-only pipelines that shatter the moment data mutates. So we set out to fix
+      each one. Here's the list.</p>
+  </div>
+</section>
+
+<!-- PROBLEMS WE SOLVED -->
+<section id="problems">
+  <div class="wrap">
+    <h2><span class="n">01</span>The problems we set out to solve</h2>
+    <p class="lead">Every card is a real pain in today's lakehouse-compute stack — and what leat does about it.
+      Everything marked <span style="color:var(--leat)">tested</span> ships with a test in the repo.</p>
+
+    <div class="problems">
+      <div class="prob">
+        <div class="bad">✕ Overkill</div>
+        <h3>Renting a cluster to filter 2M rows</h3>
+        <p>Most medallion ETL is tiny incremental batches — overhead you pay for and never use.
+          <span class="fix">leat runs the same transform on one node</span>: same result, <b>~4.6–9.4× less CPU</b>,
+          and it scales to zero between runs.</p>
+        <span class="tagd">measured</span>
+      </div>
+
+      <div class="prob">
+        <div class="bad">✕ Silent duplicates</div>
+        <h3>Exactly-once that quietly isn't</h3>
+        <p>The classic bug: your offset lives in a separate checkpoint store; a crash between "data landed" and
+          "offset saved" replays a batch. <span class="fix">leat commits the offset inside the sink's own
+          snapshot</span> — it advances if and only if the data does. One atomic step, no window.</p>
+        <span class="tagd">tested</span>
+      </div>
+
+      <div class="prob">
+        <div class="bad">✕ Boilerplate</div>
+        <h3>Offsets you have to babysit</h3>
+        <p>Manual offset columns, checkpoint locations, <code>auto.offset.reset</code>. <span class="fix">leat gives
+          you Kafka's ergonomics</span> — <code>earliest</code>/<code>latest</code>, <code>seek</code>,
+          <code>lag</code> — but mints and manages the offset for you. Your transforms see only your columns.</p>
+        <span class="tagd">tested</span>
+      </div>
+
+      <div class="prob">
+        <div class="bad">✕ Stateful monolith</div>
+        <h3>A streaming job you can't scale or deploy</h3>
+        <p>Spark streaming pins its state to one running job — scaling is a cluster resize + restart, and there's
+          no clean blue-green. <span class="fix">leat keeps state in the sink, so compute is disposable</span>:
+          scale out = deploy an instance, scale in = remove one, deploy green beside blue.</p>
+        <span class="tagd">demonstrated</span>
+      </div>
+
+      <div class="prob">
+        <div class="bad">✕ Lock-in</div>
+        <h3>Married to one table format</h3>
+        <p>Pick Iceberg or Delta and your tooling picks a side. <span class="fix">leat is format-neutral</span>
+          (both first-class, same code) and catalog-neutral (SQLite, REST, Glue, Unity) — proven live against a
+          REST catalog + object store, with concurrent writers.</p>
+        <span class="tagd">proven live</span>
+      </div>
+
+      <div class="prob">
+        <div class="bad">✕ Append-only</div>
+        <h3>Great — until your data mutates</h3>
+        <p>Append-only pipelines break the moment a row updates or a delete lands. <span class="fix">leat has an
+          <code>upsert</code> mode</span> (merge-by-key, idempotent) and an <code>on_change</code> safety check that
+          surfaces mutations append mode can't see — with full CDC/deletes on the roadmap.</p>
+        <span class="tagd">upsert tested · CDC next</span>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- COST -->
 <section id="cost">
   <div class="wrap">
-    <h2><span class="n">01</span>Save the money</h2>
-    <p class="lead">Most medallion ETL is small, frequent batches — clean, filter, join, roll up. A distributed
-      engine is overkill for that. On the <b>identical</b> result (byte-for-byte, parity-checked), leat used
-      <b>~4.6–9.4× fewer CPU-seconds</b> than Spark. CPU-seconds are what your cloud bill is made of.</p>
-
+    <h2><span class="n">02</span>The receipts: cost</h2>
+    <p class="lead">On the <b>identical</b> result (byte-for-byte, parity-checked) of a realistic medallion DAG,
+      leat used <b>~4.6–9.4× fewer CPU-seconds</b> than Spark. CPU-seconds are what your cloud bill is made of.</p>
     <div class="card">
-      <p class="chart-title">CPU-seconds for the same medallion pipeline (lower is cheaper)</p>
+      <p class="chart-title">CPU-seconds for the same pipeline — lower is cheaper</p>
       <div class="chart-box"><canvas id="cpuChart"></canvas></div>
       <div class="legend"><span><i style="background:#3fb950"></i>leat</span><span><i style="background:#6e7681"></i>Spark</span></div>
     </div>
-
     <div class="stat">
       <div><b>~4.6–9.4×</b><span>fewer CPU-seconds, same output</span></div>
       <div><b>~0 s</b><span>cold start (vs Spark's ~3 s per trigger)</span></div>
-      <div><b>scale&#8209;to&#8209;zero</b><span>a triggered task, not an always-on cluster</span></div>
+      <div><b>~15–100×</b><span>cheaper for scheduled incremental jobs</span></div>
     </div>
     <p class="note">A pipeline that runs every few minutes is a cluster rented 24/7 (or a 3-second JVM cold start
-      every trigger) vs. a task that runs ~0.4 s and exits. That gap is structural — roughly <b>15–100× cheaper</b>.</p>
+      every trigger) vs. a task that runs ~0.4 s and exits. That gap is <b>structural</b>, not a micro-optimization.</p>
   </div>
 </section>
 
 <!-- PERFORMANCE -->
 <section id="perf">
   <div class="wrap">
-    <h2><span class="n">02</span>…and it's faster where it counts</h2>
-    <p class="lead">Measured on a realistic 2 bronze → 2 silver → 1 gold DAG, with <b>both engines pinned to the same
-      4 CPUs</b> (Docker, matched thread caps) — a fair fight. leat wins wall-clock at every size we tested.</p>
-
+    <h2><span class="n">03</span>The receipts: performance</h2>
+    <p class="lead">Measured on the same DAG with <b>both engines pinned to 4 CPUs</b> (Docker, matched thread caps)
+      — a fair fight. leat wins wall-clock at every size we tested.</p>
     <div class="grid2">
       <div class="card">
         <p class="chart-title">Full backfill — wall-clock (seconds)</p>
@@ -106,33 +201,31 @@
       </div>
     </div>
     <div class="legend"><span><i style="background:#3fb950"></i>leat</span><span><i style="background:#6e7681"></i>Spark</span></div>
-
-    <p class="note"><b>Honest scope:</b> the wall-clock gap narrows as data grows — past ~35M rows/batch Spark's
-      parallelism takes over, and for giant shuffles or sub-second real-time you should still use Spark/Flink.
-      leat targets the ~90% of ETL that's small incremental batches. <b>Same answer, verified identical</b> on both
-      engines.</p>
+    <p class="note"><b>Where to still use Spark (honestly):</b> the wall-clock gap narrows as data grows — past
+      ~35M rows/batch Spark's parallelism takes over, and for giant shuffles or sub-second real-time, use
+      Spark/Flink. leat owns the everyday ~90%. Same answer, verified byte-identical on both engines.</p>
   </div>
 </section>
 
 <!-- SCALE -->
 <section id="scale">
   <div class="wrap">
-    <h2><span class="n">03</span>Scale like a stateless service</h2>
-    <p class="lead">A Spark streaming job is a stateful monolith: scaling means resizing the cluster and restarting
-      the job. leat keeps its offset in the sink's own commit, so a worker holds <b>no</b> durable state.</p>
-
+    <h2><span class="n">04</span>Scale like a stateless service</h2>
+    <p class="lead">Because the offset lives in the sink's commit, a worker holds <b>no</b> durable state — so
+      scaling and deploys stop being cluster surgery and become ordinary devops.</p>
     <div class="grid2">
       <div class="card">
         <h3 style="margin:0 0 8px">Scale = replica count</h3>
         <p style="color:var(--muted);margin:0">Scaling out is <b>deploying another instance</b>; scaling in is
-          <b>removing one</b>. No cluster resize, no restart, no state to migrate — that's the entire operation.
-          <code>kubectl scale --replicas=8</code>, and anonymous workers self-distribute the partitions.</p>
+          <b>removing one</b>. No cluster resize, no restart, no state migration. <code>kubectl scale
+          --replicas=8</code>, and anonymous workers self-distribute the partitions — a dead one's work is
+          reclaimed from the sink offset, exactly-once.</p>
       </div>
       <div class="card">
-        <h3 style="margin:0 0 8px">Failover &amp; blue-green, free</h3>
-        <p style="color:var(--muted);margin:0">A dead worker's lease expires and a survivor reclaims its partition
-          from the sink offset — exactly-once, no rebalance event. Deploy a green version to a new sink,
-          parity-check, and swap. No stop-the-world upgrades.</p>
+        <h3 style="margin:0 0 8px">Blue-green, not stop-the-world</h3>
+        <p style="color:var(--muted);margin:0">Deploy a green version writing to a new sink, parity-check it
+          against blue, and flip which one downstream reads. No checkpoint-compatibility landmines, no downtime —
+          the thing Spark streaming makes miserable.</p>
       </div>
     </div>
   </div>
@@ -141,8 +234,8 @@
 <!-- HOW TO USE -->
 <section id="use">
   <div class="wrap">
-    <h2><span class="n">04</span>How to use it</h2>
-    <p class="lead">If you know Polars, you know leat. Write a DataFrame; offsets are managed for you.</p>
+    <h2><span class="n">05</span>How to use it</h2>
+    <p class="lead">If you know Polars, you know leat. Write a DataFrame; the offset is managed for you.</p>
 <pre><span class="c"># pip install "git+https://github.com/samtheprogrammer/leat.git"</span>
 <span class="k">import</span> leat, polars <span class="k">as</span> pl
 
@@ -154,8 +247,10 @@ lt.<span class="f">table</span>(<span class="s">"db.events"</span>).<span class=
     <span class="k">return</span> df.<span class="f">filter</span>(pl.<span class="f">col</span>(<span class="s">"value"</span>) &gt; 100)
 
 silver.<span class="f">run</span>(once=<span class="k">True</span>)                <span class="c"># incremental, exactly-once, done</span>
-<span class="f">print</span>(lt.<span class="f">table</span>(<span class="s">"db.silver"</span>).<span class="f">read</span>())  <span class="c"># Polars out</span></pre>
-    <p style="margin-top:22px"><a class="cta" href="https://github.com/samtheprogrammer/leat">Read the docs &amp; benchmark on GitHub →</a></p>
+<span class="f">print</span>(lt.<span class="f">table</span>(<span class="s">"db.silver"</span>).<span class="f">read</span>())  <span class="c"># Polars out — and it reads like a Kafka consumer</span></pre>
+    <p style="margin-top:22px">
+      <a class="cta" href="https://github.com/samtheprogrammer/leat">Read the docs, design journal &amp; benchmark →</a>
+    </p>
   </div>
 </section>
 
@@ -163,7 +258,7 @@ silver.<span class="f">run</span>(once=<span class="k">True</span>)             
   <div class="wrap">
     leat — Apache-2.0 · built by <a href="https://github.com/samtheprogrammer">samtheprogrammer</a> ·
     <a href="https://github.com/samtheprogrammer/leat">github.com/samtheprogrammer/leat</a>
-    <br/><span style="font-size:.8rem">Benchmark: equal-CPU (Docker --cpus=4), realistic medallion DAG, gold byte-identical on both engines.</span>
+    <br/><span style="font-size:.8rem">Benchmark: equal-CPU (Docker --cpus=4), realistic 2 bronze → 2 silver → 1 gold DAG, gold byte-identical on both engines.</span>
   </div>
 </footer>
 
@@ -175,7 +270,6 @@ const base=(unit)=>({responsive:true,maintainAspectRatio:false,
   scales:{y:{beginAtZero:true,grid:{color:GRID}},x:{grid:{display:false}}}});
 const bars=(a,b)=>[{label:"leat",data:a,backgroundColor:GREEN,borderRadius:5,barPercentage:.6},
                    {label:"Spark",data:b,backgroundColor:GREY,borderRadius:5,barPercentage:.6}];
-
 new Chart(cpuChart,{type:"bar",data:{labels:["5M rows","20M rows"],datasets:bars([3.8,10.3],[36.1,47.7])},options:base("CPU-s")});
 new Chart(wallChart,{type:"bar",data:{labels:["5M","20M"],datasets:bars([0.89,3.01],[3.60,5.95])},options:base("s")});
 new Chart(cycleChart,{type:"bar",data:{labels:["5M","20M"],datasets:bars([372,596],[929,990])},options:base("ms")});
