@@ -18,7 +18,12 @@ dependencies = [
 [project.optional-dependencies]
 delta = ["deltalake>=1.0"]
 etcd = ["etcd3", "protobuf>=4"]
-dev = ["pytest", "grpcio-tools", "protobuf>=4"]
+dev = ["pytest", "grpcio-tools", "protobuf>=4", "numpy", "deltalake>=1.0"]
+
+[tool.pytest.ini_options]
+# Only collect the real test suite — not examples/ (whose *_test.py files match
+# pytest's default glob) and not bench/.
+testpaths = ["tests"]
 
 [project.scripts]
 leat = "leat.cli:main"

@@ -14,6 +14,7 @@ distributed coordination where a lease expiry auto-frees a dead worker's shards.
 from __future__ import annotations
 
 import os
+import tempfile
 from urllib.parse import urlparse
 
 from .base import Claim, ClaimStore
@@ -28,9 +29,11 @@ __all__ = [
     "open_claim_store",
 ]
 
-# Default sqlite file lives on a no-space warehouse path (Windows-safe, see CLAUDE.md).
+# Default sqlite file lives under the OS temp dir (cross-platform, no-space).
+# Override with LEAT_CLAIMS_DB.
 _DEFAULT_LOCAL_DB = os.environ.get(
-    "LEAT_CLAIMS_DB", os.path.join("F:" + os.sep, "pxleat_coord", "claims.db")
+    "LEAT_CLAIMS_DB",
+    os.path.join(tempfile.gettempdir(), "leat_coord", "claims.db"),
 )
 
 
