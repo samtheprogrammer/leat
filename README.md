@@ -12,6 +12,16 @@ Kafka-style offsets. Runs in any DAG. No broker, no cluster.
 The table *is* the log; a snapshot/version is the offset. So you get incremental
 bronze → silver → gold on a single node, for a fraction of a Spark cluster's cost.
 
+## Install
+
+```bash
+pip install "leat[delta] @ git+https://github.com/samtheprogrammer/leat.git"
+# core only:  pip install "git+https://github.com/samtheprogrammer/leat.git"
+# extras:     [delta] Delta Lake · [etcd] distributed coordination
+```
+
+> A PyPI release (`pip install leat`) is on the way; until then, install from git above.
+
 **Easy like Polars.** No schema wiring, no offset column — `leat` mints the
 Kafka-style offset for you (like Kafka assigning offsets on produce). Your
 transforms see and return only their business columns.
@@ -149,12 +159,14 @@ the offset lives in the **sink's own commit** (so a running worker holds *no* du
 state — it's disposable), and workers coordinate only through a **shared `ClaimStore`**
 (so they're cattle, not pets).
 
-**Scale = replica count.** Start more processes — `kubectl scale --replicas=8`, or just
-run the script more times. Anonymous workers claim partitions/offset-ranges from the
-shared store; a new worker joins by claiming free work, a dead worker's lease expires
-and a survivor reclaims its partition, resuming from the sink offset — **exactly-once,
-no restart, no rebalance event.** This is demonstrated end-to-end (scale up + kill a
-worker mid-flight + exactly-once) in [`examples/elastic_demo.py`](examples/elastic_demo.py):
+**Scale = replica count.** Scaling out is **deploying another instance**; scaling in is
+**removing one** — no cluster to resize, no job to restart, no state to migrate. That's
+the *entire* operation. Start more processes — `kubectl scale --replicas=8`, or just run
+the script more times. Anonymous workers claim partitions/offset-ranges from the shared
+store; a new worker joins by claiming free work, a dead worker's lease expires and a
+survivor reclaims its partition, resuming from the sink offset — **exactly-once, no
+restart, no rebalance event.** This is demonstrated end-to-end (scale up + kill a worker
+mid-flight + exactly-once) in [`examples/elastic_demo.py`](examples/elastic_demo.py):
 
 ```python
 from leat import run_worker, open_claim_store
