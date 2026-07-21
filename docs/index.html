@@ -127,8 +127,8 @@
     </div>
 
     <div class="strip">
-      <div class="s"><b>2.0–2.5×</b><span>lower incremental latency, at equal CPU</span></div>
-      <div class="s"><b>4.6–9.4×</b><span>fewer CPU-seconds, same output</span></div>
+      <div class="s"><b>3.3–9.4×</b><span>fewer CPU-seconds, same output</span></div>
+      <div class="s"><b>5M · 20M · 50M</b><span>leat won wall-clock at every size, equal CPU</span></div>
       <div class="s"><b>~0 s</b><span>cold start &nbsp;·&nbsp; Spark pays ~3 s</span></div>
     </div>
   </div>
@@ -214,10 +214,10 @@
       <h2>Faster to the result, every trigger</h2>
       <p class="lead">On a realistic 2&nbsp;bronze&nbsp;→&nbsp;2&nbsp;silver&nbsp;→&nbsp;1&nbsp;gold DAG with
         <b>both engines pinned to the same 4 CPUs</b> (Docker, matched thread caps), leat turns each incremental
-        cycle around in about <b>half the time</b> — and starts instantly.</p></div>
+        cycle around faster at every size we tested — and starts instantly.</p></div>
 
     <div class="card rv">
-      <div class="chart-head"><h4>Incremental cycle latency — lower is better (ms)</h4><span class="win">leat wins 5M &amp; 20M</span></div>
+      <div class="chart-head"><h4>Incremental cycle latency — lower is better (ms)</h4><span class="win">leat wins 5M · 20M · 50M</span></div>
       <div class="chart-box"><canvas id="cycleChart" data-chart="cycle"></canvas></div>
       <div class="legend"><span><i style="background:#3fd06a"></i>leat</span><span><i style="background:#5b6773"></i>Spark</span></div>
     </div>
@@ -244,11 +244,11 @@
 
     <div class="grid2">
       <div class="card rv">
-        <div class="chart-head"><h4>CPU-seconds — what the bill is made of</h4><span class="win">~4.6–9.4× less</span></div>
+        <div class="chart-head"><h4>CPU-seconds — what the bill is made of</h4><span class="win">~3.3–9.4× less</span></div>
         <div class="chart-box"><canvas id="cpuChart" data-chart="cpu"></canvas></div>
       </div>
       <div class="card rv">
-        <div class="chart-head"><h4>Full backfill — wall-clock (s)</h4><span class="win">leat faster</span></div>
+        <div class="chart-head"><h4>Full backfill — wall-clock (s)</h4><span class="win">leat faster, all sizes</span></div>
         <div class="chart-box"><canvas id="wallChart" data-chart="wall"></canvas></div>
       </div>
     </div>
@@ -256,9 +256,10 @@
 
     <p class="note rv"><b>Where Spark genuinely wins:</b> big <b>shuffles</b> — giant joins that don't fit in memory,
       global sorts, cross-partition aggregations — need a coordinator moving data around, which is Spark's real
-      moat (and a coordination problem, not a size one). For sub-second real-time, use Kafka/Flink. In every
-      equal-CPU benchmark we ran, leat won on latency, throughput, and CPU. <span style="color:var(--dim)">(Benchmark:
-      Docker <code>--cpus=4</code>, 5M &amp; 20M rows; larger + multi-instance runs in progress.)</span></p>
+      moat (and a coordination problem, not a size one). For sub-second real-time, use Kafka/Flink. But on data
+      <i>size</i> alone, we tested it: <b>at 5M, 20M and 50M rows — equal CPU — leat won wall-clock and CPU-seconds
+      every time.</b> <span style="color:var(--dim)">(Benchmark: Docker <code>--cpus=4</code>, realistic 2 bronze → 2 silver
+      → 1 gold DAG, single leat instance; gold byte-identical on both engines.)</span></p>
   </div>
 </section>
 
@@ -318,16 +319,16 @@ silver.<span class="f">run</span>(once=<span class="k">True</span>)             
 <script>
 // ---- data (equal-CPU benchmark: --cpus=4, matched threads) ----
 const D = {
-  cycle:{unit:"ms", leat:[372,596], spark:[929,990]},
-  cpu:  {unit:"CPU-s", leat:[3.8,10.3], spark:[36.1,47.7]},
-  wall: {unit:"s", leat:[0.89,3.01], spark:[3.60,5.95]},
+  cycle:{unit:"ms", leat:[372,596,832], spark:[929,990,1053]},
+  cpu:  {unit:"CPU-s", leat:[3.8,10.3,22.7], spark:[36.1,47.7,74.1]},
+  wall: {unit:"s", leat:[0.89,3.01,5.43], spark:[3.60,5.95,13.46]},
 };
 const GREEN="#3fd06a", GREY="#5b6773", INK="#93a1b2", GRID="#232c38";
 Chart.defaults.color=INK; Chart.defaults.borderColor=GRID; Chart.defaults.font.family="ui-monospace,monospace";
 const opts=(unit)=>({responsive:true,maintainAspectRatio:false,animation:{duration:1100,easing:"easeOutQuart"},
   plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>` ${c.dataset.label}: ${c.parsed.y} ${unit}`}}},
   scales:{y:{beginAtZero:true,grid:{color:GRID},border:{display:false}},x:{grid:{display:false}}}});
-const mk=(cv,d)=>new Chart(cv,{type:"bar",data:{labels:["5M rows","20M rows"],
+const mk=(cv,d)=>new Chart(cv,{type:"bar",data:{labels:["5M","20M","50M"],
   datasets:[{label:"leat",data:d.leat,backgroundColor:GREEN,borderRadius:6,barPercentage:.62,categoryPercentage:.55},
             {label:"Spark",data:d.spark,backgroundColor:GREY,borderRadius:6,barPercentage:.62,categoryPercentage:.55}]},
   options:opts(d.unit)});
