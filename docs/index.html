@@ -299,15 +299,20 @@
 <pre class="code"><span class="c"># pip install "git+https://github.com/samtheprogrammer/leat.git"</span>
 <span class="k">import</span> leat, polars <span class="k">as</span> pl
 
-lt = leat.<span class="f">connect</span>(<span class="s">"/data/leat"</span>)
+lt = leat.<span class="f">connect</span>(<span class="s">"/data/leat"</span>)          <span class="c"># a local warehouse (or point at S3 / a catalog)</span>
+
+<span class="c"># 1) SOURCE table (bronze): write raw rows — leat handles schema + offsets</span>
 lt.<span class="f">table</span>(<span class="s">"db.events"</span>).<span class="f">write</span>(pl.<span class="f">DataFrame</span>({<span class="s">"user_id"</span>:[1,2,3], <span class="s">"value"</span>:[50,150,250]}))
 
+<span class="c"># 2) a model = read SOURCE db.events  →  write SINK db.silver (auto-created)</span>
 <span class="f">@lt.model</span>(source=<span class="s">"db.events"</span>, sink=<span class="s">"db.silver"</span>, start=<span class="s">"earliest"</span>)
-<span class="k">def</span> <span class="f">silver</span>(df):                      <span class="c"># df is just your columns — no _offset</span>
+<span class="k">def</span> <span class="f">silver</span>(df):                  <span class="c"># df = just your columns, no _offset</span>
     <span class="k">return</span> df.<span class="f">filter</span>(pl.<span class="f">col</span>(<span class="s">"value"</span>) &gt; 100)
 
-silver.<span class="f">run</span>(once=<span class="k">True</span>)                <span class="c"># incremental, exactly-once, done</span>
-<span class="f">print</span>(lt.<span class="f">table</span>(<span class="s">"db.silver"</span>).<span class="f">read</span>())  <span class="c"># Polars out — reads like a Kafka consumer</span></pre>
+silver.<span class="f">run</span>(once=<span class="k">True</span>)            <span class="c"># incremental, exactly-once (omit once= to loop)</span>
+
+<span class="c"># 3) read the SINK table back</span>
+<span class="f">print</span>(lt.<span class="f">table</span>(<span class="s">"db.silver"</span>).<span class="f">read</span>())  <span class="c"># → the rows with value &gt; 100</span></pre>
     </div>
     <p class="rv" style="margin-top:26px"><a class="cta primary" href="https://github.com/samtheprogrammer/leat">Docs, design journal &amp; full benchmark →</a></p>
   </div>

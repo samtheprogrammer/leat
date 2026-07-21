@@ -29,16 +29,21 @@ transforms see and return only their business columns.
 ```python
 import leat, polars as pl
 
-lt = leat.connect("/data/leat")
-lt.table("db.events").write(pl.DataFrame({"user_id": [1, 2, 3],   # no schema, no _offset
+lt = leat.connect("/data/leat")                    # a local warehouse (or point at S3 / a catalog)
+
+# 1) SOURCE table (bronze): write raw rows — leat handles schema + offsets
+lt.table("db.events").write(pl.DataFrame({"user_id": [1, 2, 3],
                                           "value":   [50, 150, 250]}))
 
+# 2) a model = read SOURCE db.events  ->  write SINK db.silver (auto-created)
 @lt.model(source="db.events", sink="db.silver", start="earliest")
-def silver(df):                                    # df has NO _offset — just your columns
+def silver(df):                                    # df = just your columns, no _offset
     return df.filter(pl.col("value") > 100)
 
-silver.run(once=True)                              # incremental, exactly-once, done
-print(lt.table("db.silver").read())                # Polars DataFrame, no _offset column
+silver.run(once=True)                              # incremental, exactly-once (omit once= to loop)
+
+# 3) read the SINK table back
+print(lt.table("db.silver").read())                # -> the rows with value > 100
 ```
 
 **Delta is the same one-liner** — pass `format="delta"` and the identical
