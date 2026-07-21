@@ -1,0 +1,71 @@
+# Live Iceberg REST catalog + MinIO object store for leat's catalog-neutrality proof.
+#
+#   docker compose -f infra/rest/docker-compose.yml up -d
+#   pytest tests/test_rest_catalog.py
+#   docker compose -f infra/rest/docker-compose.yml down -v   # teardown
+#
+# Host ports are deliberately non-standard to avoid clashing with any other
+# MinIO/service already running on this box (an existing minio-server owns :9000):
+#   * iceberg-rest  -> host :8181  (REST catalog API)
+#   * minio  S3 API -> host :9002  (container-internal :9000)
+#   * minio console -> host :9003  (container-internal :9001)
+# Inside the compose network services talk over their own hostnames (minio:9000,
+# iceberg-rest:8181), so the odd host ports never leak into container config.
+name: leat-rest
+
+services:
+  minio:
+    image: minio/minio
+    container_name: leat-minio
+    ports:
+      - "9002:9000"   # S3 API  (host 9002 -> container 9000)
+      - "9003:9001"   # console (host 9003 -> container 9001)
+    environment:
+      MINIO_ROOT_USER: admin
+      MINIO_ROOT_PASSWORD: password
+      MINIO_DOMAIN: minio          # enables virtual-host style bucket addressing inside the net
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    volumes:
+      - minio-data:/data
+
+  # One-shot: wait for MinIO, then create the warehouse bucket. Re-runnable
+  # (mb --ignore-existing is a no-op if the bucket is already there).
+  mc-init:
+    image: minio/mc
+    container_name: leat-mc-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set local http://minio:9000 admin password) do
+        echo 'waiting for minio...'; sleep 1;
+      done;
+      /usr/bin/mc mb --ignore-existing local/warehouse;
+      /usr/bin/mc anonymous set public local/warehouse;
+      echo 'bucket warehouse ready';
+      exit 0;
+      "
+
+  iceberg-rest:
+    image: tabulario/iceberg-rest
+    container_name: leat-iceberg-rest
+    ports:
+      - "8181:8181"
+    depends_on:
+      - minio
+    environment:
+      AWS_ACCESS_KEY_ID: admin
+      AWS_SECRET_ACCESS_KEY: password
+      AWS_REGION: us-east-1
+      CATALOG_WAREHOUSE: s3://warehouse/
+      CATALOG_IO__IMPL: org.apache.iceberg.aws.s3.S3FileIO
+      CATALOG_S3_ENDPOINT: http://minio:9000
+      CATALOG_S3_PATH__STYLE__ACCESS: "true"
+
+volumes:
+  minio-data:

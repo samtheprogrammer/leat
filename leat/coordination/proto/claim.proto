@@ -1,0 +1,12 @@
+syntax = "proto3";
+package leat;
+
+// Wire format for a shard claim as stored in etcd (/leat/claims/<shard>).
+// Kept compact + language-neutral so non-Python workers can coordinate too.
+message Claim {
+  string shard = 1;
+  string worker = 2;
+  int64 lease_expiry_ms = 3;
+  int64 bookmark_offset = 4;
+  string status = 5;
+}

@@ -1,0 +1,31 @@
+[project]
+name = "leat"
+version = "0.0.1"
+description = "Lightweight, engine-neutral incremental ETL over Iceberg & Delta — Kafka-style offsets, runs in any DAG, no cluster."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "Apache-2.0" }
+authors = [{ name = "Sameer" }]
+keywords = ["iceberg", "delta", "lakehouse", "incremental", "etl", "streaming", "arrow"]
+dependencies = [
+    "pyiceberg[sql-sqlite,pyarrow]>=0.11",
+    "fsspec",
+    "pyarrow>=15",
+    "polars>=1.0",
+    "duckdb>=1.0",
+]
+
+[project.optional-dependencies]
+delta = ["deltalake>=1.0"]
+etcd = ["etcd3", "protobuf>=4"]
+dev = ["pytest", "grpcio-tools", "protobuf>=4"]
+
+[project.scripts]
+leat = "leat.cli:main"
+
+[project.urls]
+Homepage = "https://leat.phyllax.com"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

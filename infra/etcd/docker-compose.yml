@@ -1,0 +1,40 @@
+# Single-node etcd for leat coordination integration tests.
+#
+# Auth disabled (dev only). Listens on :2379 (client) — chosen to not clash with
+# iceberg-rest (8181), minio (9000), or spark used by other bench infra.
+#
+# Usage (from this directory, F:/Phyllax Engine/leat/infra/etcd):
+#   docker compose up -d          # start
+#   docker compose ps             # status
+#   docker compose logs etcd      # logs
+#   docker compose down -v        # stop + wipe data
+#
+# Health check from host:
+#   docker exec leat-etcd etcdctl endpoint health
+#   python -c "import etcd3; print(etcd3.client(host='localhost',port=2379).status())"
+services:
+  etcd:
+    image: quay.io/coreos/etcd:v3.5.16
+    container_name: leat-etcd
+    command:
+      - etcd
+      - --name=leat-etcd
+      - --data-dir=/etcd-data
+      - --listen-client-urls=http://0.0.0.0:2379
+      - --advertise-client-urls=http://0.0.0.0:2379
+      - --listen-peer-urls=http://0.0.0.0:2380
+      - --initial-advertise-peer-urls=http://0.0.0.0:2380
+      - --initial-cluster=leat-etcd=http://0.0.0.0:2380
+      # dev: no auth, no TLS
+      - --log-level=warn
+    ports:
+      - "2379:2379"
+    environment:
+      # extra belt-and-suspenders so the v3 client is enabled
+      - ETCD_ENABLE_V2=false
+      - ALLOW_NONE_AUTHENTICATION=yes
+    healthcheck:
+      test: ["CMD", "etcdctl", "endpoint", "health"]
+      interval: 3s
+      timeout: 4s
+      retries: 10

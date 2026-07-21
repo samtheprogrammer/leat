@@ -1,0 +1,37 @@
+# leat benchmark image — run leat INSIDE Docker so it gets the same --cpus=N
+# cgroup CPU cap as the Spark container (a true apples-to-apples budget).
+#
+# The repo is MOUNTED at /repo at run time (so we don't COPY the source and can
+# iterate); this image only carries the pinned dependency set. leat itself is
+# installed editable against the mount by the run script (fast, no rebuild on
+# source change). Versions pinned to the host's to keep results comparable.
+FROM python:3.11-slim
+
+ENV PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONUNBUFFERED=1
+
+# Minimal build deps (pyiceberg/pyarrow/duckdb ship manylinux wheels, so no
+# compiler is normally needed, but keep gcc for any sdist fallback).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Pinned to match the host env used to author the benchmark (see bench/README).
+RUN pip install \
+        "pyiceberg[sql-sqlite,pyarrow]==0.11.1" \
+        "polars==1.42.1" \
+        "duckdb==1.5.4" \
+        "deltalake==1.6.2" \
+        "pyarrow==21.0.0" \
+        "fsspec" \
+        "numpy" \
+        "psutil" \
+        "protobuf>=4" \
+        "grpcio"
+
+WORKDIR /repo
+# Repo is mounted at /repo; results/data live under /repo/bench (mounted, so the
+# host reads them). Warehouse goes to a container-local no-space path via
+# LEAT_BENCH_DIR set at run time (NOT a mounted Windows path).
+CMD ["python", "bench/leat_medallion.py", "--preset", "small"]
