@@ -1,5 +1,6 @@
 # leat
 
+[![PyPI](https://img.shields.io/pypi/v/leat.svg)](https://pypi.org/project/leat/)
 [![tests](https://github.com/samtheprogrammer/leat/actions/workflows/ci.yml/badge.svg)](https://github.com/samtheprogrammer/leat/actions/workflows/ci.yml)
 [![License: Apache 2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](pyproject.toml)
@@ -15,12 +16,10 @@ bronze → silver → gold on a single node, for a fraction of a Spark cluster's
 ## Install
 
 ```bash
-pip install "leat[delta] @ git+https://github.com/samtheprogrammer/leat.git"
-# core only:  pip install "git+https://github.com/samtheprogrammer/leat.git"
-# extras:     [delta] Delta Lake · [etcd] distributed coordination
+pip install leat            # core (Iceberg)
+pip install "leat[delta]"   # + Delta Lake
+pip install "leat[etcd]"    # + distributed coordination (etcd)
 ```
-
-> A PyPI release (`pip install leat`) is on the way; until then, install from git above.
 
 **Easy like Polars.** No schema wiring, no offset column — `leat` mints the
 Kafka-style offset for you (like Kafka assigning offsets on produce). Your

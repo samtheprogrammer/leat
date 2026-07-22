@@ -17,12 +17,9 @@ message broker. No broker, no cluster; it runs as one task inside a DAG.
 ## 1. Install
 
 ```bash
-# core (Iceberg)
-pip install "git+https://github.com/samtheprogrammer/leat.git"
-
-# with extras
-pip install "leat[delta] @ git+https://github.com/samtheprogrammer/leat.git"   # Delta Lake
-pip install "leat[etcd] @ git+https://github.com/samtheprogrammer/leat.git"     # distributed coordination
+pip install leat            # core (Iceberg)
+pip install "leat[delta]"   # + Delta Lake
+pip install "leat[etcd]"    # + distributed coordination (etcd)
 ```
 
 | extra | pulls in | when you need it |
@@ -30,8 +27,6 @@ pip install "leat[etcd] @ git+https://github.com/samtheprogrammer/leat.git"     
 | `[delta]` | `deltalake>=1.0` | Delta Lake source/sink (`format="delta"`) |
 | `[etcd]` | `etcd3`, `protobuf>=4` | multi-machine coordination (`open_claim_store("etcd://...")`) |
 | `[dev]` | pytest, deltalake, protobuf tooling, numpy | running the test suite |
-
-> A PyPI release (`pip install leat`) is on the way; until then install from git.
 
 **etcd gotcha:** the `etcd3` client ships protobuf stubs that the modern C/upb
 protobuf backend refuses to load. Set the pure-Python backend **before** any
