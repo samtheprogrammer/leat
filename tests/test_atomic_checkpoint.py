@@ -206,8 +206,8 @@ def test_pipeline_sink_checkpoint_exactly_once_iceberg(base):
 
 
 def test_pipeline_json_path_unchanged_iceberg(base):
-    """The default (JSON) path still commits offsets to the side file — no regression."""
-    lt = connect(f"{base}/ice_json")               # default checkpoint mode
+    """The JSON path (opt-in) still commits offsets to the side file — no regression."""
+    lt = connect(f"{base}/ice_json", checkpoint="json")   # opt into JSON offsets
     assert lt.checkpoint_mode == "json"
     schema = pa.schema([("_offset", pa.int64()), ("value", pa.int64())])
     src = lt.create("db.events", schema)

@@ -134,7 +134,7 @@ def cmd_status(args) -> int:
             pos = p.position()
         except Exception as e:  # pragma: no cover - defensive
             pos = f"err:{e}"
-        pos_str = "earliest" if pos is None else str(pos)
+        pos_str = "earliest" if (pos is None or (isinstance(pos, int) and pos < 0)) else str(pos)
         try:
             lag = p.lag()
         except Exception as e:  # pragma: no cover - defensive
@@ -185,7 +185,7 @@ def cmd_reset(args) -> int:
 
 
 def _show(v) -> str:
-    return "earliest" if v is None else str(v)
+    return "earliest" if (v is None or (isinstance(v, int) and v < 0)) else str(v)
 
 
 def _persist(consumer) -> None:

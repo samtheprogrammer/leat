@@ -332,8 +332,8 @@ def connect(warehouse: str, uri: Optional[str] = None,
             catalog: Optional[str] = None, format: str = "iceberg", **opts) -> Session:
     """Zero-config session — builds a catalog with Windows-safe FileIO.
 
-        lt = leat.connect("/data/leat")                     # SQLite, JSON offsets (default)
-        lt = leat.connect("/data/leat", checkpoint="sink")  # atomic sink-committed offsets
+        lt = leat.connect("/data/leat")                     # SQLite, exactly-once sink offsets (default)
+        lt = leat.connect("/data/leat", checkpoint="json")  # opt into a side JSON offset file
         lt = leat.connect("/data/leat", format="delta")     # Delta Lake, no catalog (path-based)
 
     `format`: "iceberg" (default) → builds a catalog (see below). "delta" → NO
@@ -362,12 +362,13 @@ def connect(warehouse: str, uri: Optional[str] = None,
     catalog — so the SAME leat pipeline code runs against a real cloud-shaped
     catalog with only this call changed.
 
-    `checkpoint`: "json" (default) or a path → offsets in a side JSON file;
-    "sink" → each pipeline's offset lives in ITS sink table's commit metadata
-    (atomic with the append → true exactly-once). Any other value is a JSON path.
+    `checkpoint`: "sink" (default) → each pipeline's offset lives in ITS sink
+    table's commit metadata (atomic with the append → true exactly-once, even
+    across a crash). "json" → offsets in a side JSON file (at-least-once under a
+    crash between the append and the offset write). Any other value is a JSON path.
     """
     kind = (catalog or "").lower()
-    mode = "sink" if checkpoint == "sink" else "json"
+    mode = "json" if (checkpoint is not None and checkpoint != "sink") else "sink"
 
     if (format or "iceberg").lower() == "delta":
         # Path-based, no catalog. `warehouse` is the base dir; identifiers map to

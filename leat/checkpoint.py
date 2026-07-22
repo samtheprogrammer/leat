@@ -34,9 +34,12 @@ class SinkCheckpointStore:
     append (true exactly-once). No separate file, so no crash window between the
     data write and the offset write.
 
-    Shares the JsonCheckpointStore get/set interface, but `set` is a no-op: the
-    offset is persisted inside `sink.append(offsets=...)`, so Consumer.commit()
-    (which calls set) stays a safe call and the sink is the source of truth.
+    The default `@lt.model` loop persists the offset *inside* the data append
+    (`sink.append(offsets=...)`) and advances the consumer in memory — it never
+    calls `set()`. `set()` exists for the control paths — `reset`/`seek` and a
+    low-level `Consumer.commit()` — which need to move a sink-stored offset without
+    a data write. It does that with an offset-only commit (empty data + embedded
+    offset), so the sink stays the single source of truth.
     """
     def __init__(self, sink):                    # a TableFormat (IcebergFormat/DeltaFormat)
         self._sink = sink
@@ -45,4 +48,7 @@ class SinkCheckpointStore:
         return self._sink.read_offsets().get(name)
 
     def set(self, name: str, offset: Optional[int]) -> None:
-        pass                                     # persisted atomically in sink.append(offsets=...)
+        # Offset-only control commit: empty data matching the sink schema, with the
+        # offset in the snapshot metadata. None -> -1 ("before all" = earliest).
+        empty = self._sink.read_all().schema.empty_table()
+        self._sink.append(empty, offsets={name: -1 if offset is None else int(offset)})

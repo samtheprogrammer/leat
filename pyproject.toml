@@ -1,6 +1,6 @@
 [project]
 name = "leat"
-version = "0.1.0"
+version = "0.1.1"
 description = "Lightweight, engine-neutral incremental ETL over Iceberg & Delta — Kafka-style offsets, runs in any DAG, no cluster."
 readme = "README.md"
 requires-python = ">=3.10"

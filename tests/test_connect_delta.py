@@ -113,8 +113,8 @@ def test_delta_model_exactly_once_and_resume(wh):
 
 
 def test_delta_model_json_checkpoint(wh):
-    """checkpoint="json" (default) also works end-to-end on Delta."""
-    lt = leat.connect(wh, format="delta")          # default json checkpoint
+    """checkpoint="json" (opt-in) also works end-to-end on Delta."""
+    lt = leat.connect(wh, format="delta", checkpoint="json")   # opt into JSON offsets
     assert lt.checkpoint_mode == "json"
     lt.table("db.events").write(pl.DataFrame({"value": [50, 150, 250]}))
 

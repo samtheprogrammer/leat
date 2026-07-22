@@ -60,7 +60,7 @@ Three separate stores (easy to confuse — one sentence each; see the README's
 | store | holds | examples |
 |---|---|---|
 | **Catalog** | which table *version* is current (a pointer) | Glue, Unity, REST, SQLite |
-| **Checkpoint store** | leat's *offsets* | the sink's own commit (`checkpoint="sink"`), or a JSON side-file (default) |
+| **Checkpoint store** | leat's *offsets* | the sink's own commit (`checkpoint="sink"`, default), or a JSON side-file (`checkpoint="json"`) |
 | **Coordination** (`ClaimStore`) | which *worker* owns which bucket (scale-out) | SQLite, etcd |
 
 ---
@@ -104,13 +104,16 @@ committed, it always resumes from there):
 | `"earliest"` | reprocess the whole table from the beginning |
 | `<int>` | begin just after this offset |
 
-**`checkpoint="sink"` vs `"json"`.** `connect()` defaults to `checkpoint="json"`
-(offsets in a side JSON file under the warehouse). Pass `checkpoint="sink"` to
-store each pipeline's offset in its sink table's own commit metadata — atomic with
-the data, true exactly-once, no side file:
+**`checkpoint="sink"` (default) vs `"json"`.** `connect()` defaults to
+`checkpoint="sink"` — each pipeline's offset lives in its sink table's own commit
+metadata, atomic with the data, so it's **true exactly-once even across a crash**
+(no side file, nothing to fall out of sync). Opt into `checkpoint="json"` for a
+simple side JSON file instead (at-least-once under a crash between the append and
+the offset write):
 
 ```python
-lt = leat.connect("F:/leat", checkpoint="sink")   # atomic sink-committed offsets
+lt = leat.connect("F:/leat")                    # default: atomic sink offsets (exactly-once)
+lt = leat.connect("F:/leat", checkpoint="json") # opt into a side JSON offset file
 ```
 
 > In `"sink"` mode a `Consumer` resolves its start offset from the sink's commit
