@@ -9,6 +9,7 @@ already have.
 
 Start here:
 
+- [guide.md](guide.md) — Developer / usage guide: install, quickstart, catalogs, Delta, modes, the low-level API, scaling & distributed workers, CLI. The "how to actually use it" doc.
 - [why.md](why.md) — Why leat exists: the cost insight behind it, the problem it solves, who it's for.
 - [positioning.md](positioning.md) — We are not replacing Spark. The 90/10 split and a decision table (leat vs Spark vs Flink vs Kafka vs the warehouse).
 - [cost.md](cost.md) — How it saves money: always-on cluster vs triggered task, the measured numbers, and where Spark still wins.

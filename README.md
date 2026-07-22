@@ -251,7 +251,7 @@ roadmap, not silent.
 
 ## Docs
 
-- [Why leat exists](docs/why.md) · [Positioning — not replacing Spark](docs/positioning.md) · [How it saves money](docs/cost.md) · [Use cases & boundaries](docs/use-cases.md) · [Updates & CDC](docs/updates-and-cdc.md) · [Architecture](docs/architecture.md)
+- [Developer guide — how to use leat](docs/guide.md) · [Why leat exists](docs/why.md) · [Positioning — not replacing Spark](docs/positioning.md) · [How it saves money](docs/cost.md) · [Use cases & boundaries](docs/use-cases.md) · [Updates & CDC](docs/updates-and-cdc.md) · [Architecture](docs/architecture.md)
 
 ## Status
 
